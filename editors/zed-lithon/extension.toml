@@ -8,7 +8,7 @@ repository = "https://github.com/Tenuka22/Lithon"
 
 [grammars.lithon]
 repository = "file:///home/tenu22/Projects/Lithon/editors/zed-lithon/grammars/lithon"
-rev = "docs/oop-phase1-sync"
+rev = "295ad68"
 
 [languages]
 Lithon = { scope = "source.lithon" }
