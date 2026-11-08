@@ -1,4 +1,3 @@
-# part file 12_send.lio of std/http/ (concatenate in order)
 # socket + connect + chunked send
     sa.lo = 2 | (swap16(port) << 16) | (swap32(ip) << 32)
     sa.hi = 0

@@ -1,4 +1,3 @@
-# part file 13_recv.lio of std/http/ (concatenate in order)
 # chunked recv + streaming status/boundary/body parse
 total = 0
 bs: int[64] = 0

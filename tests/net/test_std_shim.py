@@ -9,9 +9,14 @@ import tempfile
 
 def test_shim():
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent.parent))
-    from std.http import ROUTES, program, run
+    from std.http import GROUPS, PARTS, ROUTES, program, run
 
     assert set(ROUTES) == {"get", "post", "put", "patch", "delete"}
+    assert list(GROUPS) == ["core", "url", "request", "net"], GROUPS
+    # group map covers every part, in concatenation order
+    assert list(GROUPS) == ["core", "url", "request", "net"], GROUPS
+    assert [p for g in GROUPS.values() for p in g] == list(PARTS), "group order must equal PARTS"
+    assert all(len(g) >= 1 for g in GROUPS.values())
     src = program()
     assert src.count("def swap32") == 1 and "print(status)" in src
     # run() substitutes all three defaults

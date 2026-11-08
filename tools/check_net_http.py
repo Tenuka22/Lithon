@@ -31,7 +31,9 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 RUNNER = ROOT / "build" / "tier_runner"
 FRONTEND = ROOT / "src" / "frontend" / "frontend.py"
-HTTP_PARTS = sorted((ROOT / "std" / "http").glob("*.lio"))
+import sys as _sys
+_sys.path.insert(0, str(ROOT))
+from std.http.raw import program as _http_program
 DRIVERS = ["http_get", "http_post", "http_put", "http_patch", "http_delete"]
 
 CASES = {
@@ -95,7 +97,7 @@ def main() -> int:
     thread = threading.Thread(target=srv.serve_forever, daemon=True)
     thread.start()
 
-    lib = "\n".join(path.read_text() for path in HTTP_PARTS)
+    lib = _http_program()
     bad = 0
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td)
@@ -103,7 +105,7 @@ def main() -> int:
             method, body, expected = CASES[stem]
             url = f"http://127.0.0.1:{port}/hello"
 
-            # std/http.lio is a top-level program that prints status + body
+            # Each part is a top-level program (prints status + body); only the literals vary per verb
             # itself; only the three input literals vary per case.
             src = lib
             src = src.replace(

@@ -9,14 +9,16 @@ tooling.
 
 from pathlib import Path
 
-# Concatenation order for this module's pieces (numeric prefixes enforce it).
-PARTS = (
-    "00_common.lio",
-    "10_url.lio",
-    "11_request.lio",
-    "12_send.lio",
-    "13_recv.lio",
-)
+# Parts grouped by concern: read order is cross-group order, numeric
+# prefixes inside each group enforce the running sequence. New behavior
+# slots in as a new trailing group, never by inserting mid-sequence.
+GROUPS: dict[str, tuple[str, ...]] = {
+    "core": ("core/01_scalars.lio", "core/02_state.lio"),
+    "url": ("url/10_url.lio",),
+    "request": ("request/11_request.lio",),
+    "net": ("net/12_send.lio", "net/13_recv.lio"),
+}
+PARTS: tuple[str, ...] = tuple(part for group in GROUPS.values() for part in group)
 
 
 def part(name: str) -> str:

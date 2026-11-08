@@ -1,0 +1,21 @@
+{
+  "name": "tree-sitter-lithon",
+  "version": "0.1.0",
+  "description": "Tree-sitter syntax grammar for the Lithon programming language",
+  "license": "MIT",
+  "main": "bindings/node",
+  "scripts": {
+    "install": "node-gyp-build"
+  },
+  "dependencies": {
+    "node-gyp-build": "^4.8.0"
+  },
+  "tree-sitter": [
+    {
+      "scope": "source.lithon",
+      "path": ".",
+      "file-types": ["lio"],
+      "highlights": "queries/highlights.scm"
+    }
+  ]
+}

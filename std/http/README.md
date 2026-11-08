@@ -10,7 +10,7 @@ from std.http import HttpClient
 client = HttpClient("http://127.0.0.1:8080")
 r = client.post("/api", body='{"sku": 7}')
 print(r.status, r.ok)      # 201 True
-print(r.body)              # {"credited": true}
+print(r.body)              # {"created": true}
 print(r.json())            # {"created": True}
 ```
 
@@ -22,19 +22,21 @@ The response is `Response(status, body, tier)` — status is the HTTP code,
 or 0 when the request could not be made (bad URL, refused connect,
 malformed response).
 
-## Architecture
+## Repository module map (concatenate in order)
 
-The Lithon side is five `.lio` pieces concatenated in order (Lithon has
-no import system — concatenation IS the inclusion). The Python side lives
-in `raw.py` (concatenation + verb substitution) and `client.py`.
+| Group | File | Role |
+|---|---|---|
+| `core` | `core/01_scalars.lio` | endian swaps + `Chunker` (int[8] struct fields) |
+| `core` | `core/02_state.lio` | module inputs/outputs/templates/buffers |
+| `url` | `url/10_url.lio` | URL parse + IPv4-literal / `localhost` |
+| `request` | `request/11_request.lio` | request byte assembly into `req` |
+| `net` | `net/12_send.lio` | socket + connect + chunked send |
+| `net` | `net/13_recv.lio` | chunked recv + streaming status/boundary/body parse |
 
-| File | Role |
-|---|---|
-| `00_common.lio` | swap helpers, the kernel-visible `Chunker` (int[8] struct fields), globals & templates |
-| `10_url.lio` | URL parse (`http://host[:port][/path]`) + IPv4-literal / `localhost` |
-| `11_request.lio` | request assembly into the `req` str run |
-| `12_send.lio` | socket + connect + chunked send |
-| `13_recv.lio` | chunked recv + streaming status/boundary/body parse; prints `status` and `http_out` |
+`std.http.raw.GROUPS` is this table as data (order, not just names), so
+future modules can be appended/expanded programmatically. Lithon itself
+has no import statement — concatenation IS the inclusion mechanism;
+`std.http.program()` performs it.
 
 Buffers are structs of `int[8]` fields — the only kernel-visible
 memory in both tiers (the interpreter keeps string runs as value

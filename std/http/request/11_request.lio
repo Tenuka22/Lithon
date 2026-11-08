@@ -1,4 +1,3 @@
-# part file 11_request.lio of std/http/ (concatenate in order)
 # request assembly into the req str run
     m: int[64] = 0
     while m < len(http_method):

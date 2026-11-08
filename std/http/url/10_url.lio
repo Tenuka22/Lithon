@@ -1,4 +1,3 @@
-# part file 10_url.lio of std/http/ (concatenate in order)
 # URL parse (http://host[:port][/path]) + IPv4/localhost
 scheme_chk: int[64] = 0
 if len(http_url) < 7:

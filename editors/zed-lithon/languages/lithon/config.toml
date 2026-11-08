@@ -1,0 +1,14 @@
+name = "Lithon"
+extensions = ["lio"]
+line_comments = ["#"]
+multi_line_comments = []
+brackets = [
+  { start = "{", end = "}", new_line = true },
+  { start = "[", end = "]", new_line = false },
+  { start = "(", end = ")", new_line = false },
+]
+bracket_pairs = [["{", "}"], ["[", "]"], ["(", ")"]]
+word_separators = [" ", "\t", "\n", "\r", ".", ",", "::", "(", ")", "[", "]", "{", "}", ":", ";"]
+indentation = { auto_indent = true, auto_indent_beginning_of_line = false }
+scope = "source.lithon"
+first_line_match = ""

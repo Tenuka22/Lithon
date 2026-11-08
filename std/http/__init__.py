@@ -8,7 +8,7 @@ in this directory for the module map.
 """
 
 from .client import HttpClient, HttpError, Response
-from .raw import PARTS, ROUTES, part, program, run
+from .raw import GROUPS, PARTS, ROUTES, part, program, run
 
 __all__ = [
     "HttpClient",
@@ -19,4 +19,5 @@ __all__ = [
     "run",
     "ROUTES",
     "PARTS",
+    "GROUPS",
 ]

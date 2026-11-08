@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "Tree-sitter syntax grammar for the Lithon programming language",
+    "parents": [],
+    "bindings": {}
+  },
+  "grammars": [
+    {
+      "name": "lithon",
+      "scope": "source.lithon",
+      "path": "grammar.js",
+      "file-types": ["lio"],
+      "highlights": "queries/highlights.scm",
+      "injections": "queries/injections.scm",
+      "locals": "queries/locals.scm"
+    }
+  ]
+}
