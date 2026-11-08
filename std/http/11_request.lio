@@ -1,0 +1,98 @@
+# part file 11_request.lio of std/http/ (concatenate in order)
+# request assembly into the req str run
+    m: int[64] = 0
+    while m < len(http_method):
+        req[out] = http_method[m]
+        out = out + 1
+        m = m + 1
+    req[out] = 32
+    out = out + 1
+    if path_start < 0:
+        req[out] = 47
+        out = out + 1
+    else:
+        p: int[64] = path_start
+        while p < len(http_url):
+            req[out] = http_url[p]
+            out = out + 1
+            p = p + 1
+    t: int[64] = 0
+    while t < len(http_tail):
+        req[out] = http_tail[t]
+        out = out + 1
+        t = t + 1
+    h: int[64] = host_start
+    while h < host_end:
+        req[out] = http_url[h]
+        out = out + 1
+        h = h + 1
+    if port != 80:
+        req[out] = 58
+        out = out + 1
+        dtmp: list[int[64], 6]
+        dcnt: int[64] = 0
+        pv: int[64] = port
+        while pv > 0:
+            dtmp[dcnt] = pv % 10
+            pv = int(64, pv / 10.0)
+            dcnt = dcnt + 1
+        if dcnt == 0:
+            dtmp[0] = 0
+            dcnt = 1
+        di: int[64] = dcnt
+        while di > 0:
+            di = di - 1
+            req[out] = http_digits[dtmp[di]]
+            out = out + 1
+    req[out] = 13
+    out = out + 1
+    req[out] = 10
+    out = out + 1
+    body_len = len(http_body)
+    if body_len > 0:
+        cl: int[64] = 0
+        while cl < len(http_cl):
+            req[out] = http_cl[cl]
+            out = out + 1
+            cl = cl + 1
+        dtmp2: list[int[64], 6]
+        dcnt2: int[64] = 0
+        bv: int[64] = body_len
+        while bv > 0:
+            dtmp2[dcnt2] = bv % 10
+            bv = int(64, bv / 10.0)
+            dcnt2 = dcnt2 + 1
+        if dcnt2 == 0:
+            dtmp2[0] = 0
+            dcnt2 = 1
+        di2: int[64] = dcnt2
+        while di2 > 0:
+            di2 = di2 - 1
+            req[out] = http_digits[dtmp2[di2]]
+            out = out + 1
+        req[out] = 13
+        out = out + 1
+        req[out] = 10
+        out = out + 1
+        ct: int[64] = 0
+        while ct < len(http_ct):
+            req[out] = http_ct[ct]
+            out = out + 1
+            ct = ct + 1
+        # blank line ends the headers; the body follows immediately
+        req[out] = 13
+        out = out + 1
+        req[out] = 10
+        out = out + 1
+        b: int[64] = 0
+        while b < body_len:
+            req[out] = http_body[b]
+            out = out + 1
+            b = b + 1
+    else:
+        req[out] = 13
+        out = out + 1
+        req[out] = 10
+        out = out + 1
+
+if done == 0:

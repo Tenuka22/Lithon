@@ -31,7 +31,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 RUNNER = ROOT / "build" / "tier_runner"
 FRONTEND = ROOT / "src" / "frontend" / "frontend.py"
-HTTP_LIB = ROOT / "std" / "http.lio"
+HTTP_PARTS = sorted((ROOT / "std" / "http").glob("*.lio"))
 DRIVERS = ["http_get", "http_post", "http_put", "http_patch", "http_delete"]
 
 CASES = {
@@ -95,7 +95,7 @@ def main() -> int:
     thread = threading.Thread(target=srv.serve_forever, daemon=True)
     thread.start()
 
-    lib = HTTP_LIB.read_text()
+    lib = "\n".join(path.read_text() for path in HTTP_PARTS)
     bad = 0
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td)

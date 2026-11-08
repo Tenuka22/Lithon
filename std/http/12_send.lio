@@ -1,0 +1,157 @@
+# part file 12_send.lio of std/http/ (concatenate in order)
+# socket + connect + chunked send
+    sa.lo = 2 | (swap16(port) << 16) | (swap32(ip) << 32)
+    sa.hi = 0
+    fd = syscall(41, 2, 1, 0)
+    if fd < 0:
+        done = 1
+if done == 0:
+    if syscall(42, fd, _psa, 16) < 0:
+        syscall(3, fd)
+        done = 1
+
+if done == 0:
+    sp = 0
+    while sp < out and done == 0:
+        if sp + 0 < out:
+            ch.f0 = req[sp]
+        if sp + 1 < out:
+            ch.f1 = req[sp + 1]
+        if sp + 2 < out:
+            ch.f2 = req[sp + 2]
+        if sp + 3 < out:
+            ch.f3 = req[sp + 3]
+        if sp + 4 < out:
+            ch.f4 = req[sp + 4]
+        if sp + 5 < out:
+            ch.f5 = req[sp + 5]
+        if sp + 6 < out:
+            ch.f6 = req[sp + 6]
+        if sp + 7 < out:
+            ch.f7 = req[sp + 7]
+        if sp + 8 < out:
+            ch.f8 = req[sp + 8]
+        if sp + 9 < out:
+            ch.f9 = req[sp + 9]
+        if sp + 10 < out:
+            ch.f10 = req[sp + 10]
+        if sp + 11 < out:
+            ch.f11 = req[sp + 11]
+        if sp + 12 < out:
+            ch.f12 = req[sp + 12]
+        if sp + 13 < out:
+            ch.f13 = req[sp + 13]
+        if sp + 14 < out:
+            ch.f14 = req[sp + 14]
+        if sp + 15 < out:
+            ch.f15 = req[sp + 15]
+        if sp + 16 < out:
+            ch.f16 = req[sp + 16]
+        if sp + 17 < out:
+            ch.f17 = req[sp + 17]
+        if sp + 18 < out:
+            ch.f18 = req[sp + 18]
+        if sp + 19 < out:
+            ch.f19 = req[sp + 19]
+        if sp + 20 < out:
+            ch.f20 = req[sp + 20]
+        if sp + 21 < out:
+            ch.f21 = req[sp + 21]
+        if sp + 22 < out:
+            ch.f22 = req[sp + 22]
+        if sp + 23 < out:
+            ch.f23 = req[sp + 23]
+        if sp + 24 < out:
+            ch.f24 = req[sp + 24]
+        if sp + 25 < out:
+            ch.f25 = req[sp + 25]
+        if sp + 26 < out:
+            ch.f26 = req[sp + 26]
+        if sp + 27 < out:
+            ch.f27 = req[sp + 27]
+        if sp + 28 < out:
+            ch.f28 = req[sp + 28]
+        if sp + 29 < out:
+            ch.f29 = req[sp + 29]
+        if sp + 30 < out:
+            ch.f30 = req[sp + 30]
+        if sp + 31 < out:
+            ch.f31 = req[sp + 31]
+        if sp + 32 < out:
+            ch.f32 = req[sp + 32]
+        if sp + 33 < out:
+            ch.f33 = req[sp + 33]
+        if sp + 34 < out:
+            ch.f34 = req[sp + 34]
+        if sp + 35 < out:
+            ch.f35 = req[sp + 35]
+        if sp + 36 < out:
+            ch.f36 = req[sp + 36]
+        if sp + 37 < out:
+            ch.f37 = req[sp + 37]
+        if sp + 38 < out:
+            ch.f38 = req[sp + 38]
+        if sp + 39 < out:
+            ch.f39 = req[sp + 39]
+        if sp + 40 < out:
+            ch.f40 = req[sp + 40]
+        if sp + 41 < out:
+            ch.f41 = req[sp + 41]
+        if sp + 42 < out:
+            ch.f42 = req[sp + 42]
+        if sp + 43 < out:
+            ch.f43 = req[sp + 43]
+        if sp + 44 < out:
+            ch.f44 = req[sp + 44]
+        if sp + 45 < out:
+            ch.f45 = req[sp + 45]
+        if sp + 46 < out:
+            ch.f46 = req[sp + 46]
+        if sp + 47 < out:
+            ch.f47 = req[sp + 47]
+        if sp + 48 < out:
+            ch.f48 = req[sp + 48]
+        if sp + 49 < out:
+            ch.f49 = req[sp + 49]
+        if sp + 50 < out:
+            ch.f50 = req[sp + 50]
+        if sp + 51 < out:
+            ch.f51 = req[sp + 51]
+        if sp + 52 < out:
+            ch.f52 = req[sp + 52]
+        if sp + 53 < out:
+            ch.f53 = req[sp + 53]
+        if sp + 54 < out:
+            ch.f54 = req[sp + 54]
+        if sp + 55 < out:
+            ch.f55 = req[sp + 55]
+        if sp + 56 < out:
+            ch.f56 = req[sp + 56]
+        if sp + 57 < out:
+            ch.f57 = req[sp + 57]
+        if sp + 58 < out:
+            ch.f58 = req[sp + 58]
+        if sp + 59 < out:
+            ch.f59 = req[sp + 59]
+        if sp + 60 < out:
+            ch.f60 = req[sp + 60]
+        if sp + 61 < out:
+            ch.f61 = req[sp + 61]
+        if sp + 62 < out:
+            ch.f62 = req[sp + 62]
+        if sp + 63 < out:
+            ch.f63 = req[sp + 63]
+        remain = out - sp
+        if remain > 64:
+            remain = 64
+        sent = syscall(44, fd, _pch, remain, 0, 0, 0)
+        if sent <= 0:
+            syscall(3, fd)
+            done = 1
+        sp = sp + remain
+
+
+# --- receive: chunked recv with a streaming status/boundary/body parse ---
+# Bytes arrive 64 at a time in ch.* (kernel-real in both tiers). Each chunk
+# is copied into lb so the state machine can walk it with dynamic indices.
+lb: list[int[8], 64]

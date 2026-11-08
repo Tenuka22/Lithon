@@ -1,0 +1,165 @@
+# HTTP client — part 1/5 (00_common):
+# constants, swap helpers, kernel-visible Chunker, globals
+#
+# There is no import system in Lithon: prepend this file to your program
+# (or paste it in). It depends on nothing but the `syscall()` builtin,
+# `str[N]` buffers, and the loops the language already has. Usage:
+#
+#     http_method = "POST"
+#     http_url = "http://127.0.0.1:8080/api/items"
+#     http_body = '{"sku": 7}'
+#     s: int[64] = http_request()
+#     print(s)          # 201
+#     print(http_out)   # response body, e.g. '{"created": true}'
+#
+# Supported verbs are the method literal alone: GET / PUT / PATCH / POST /
+# DELETE all run the same code path. The body is opaque text — JSON and HTML
+# need no distinction, only how you read http_out. Status is the HTTP code,
+# or 0 when the request could not be made at all (bad URL, refused connect,
+# empty/unexpected response); http_out is then "" (or the partial body).
+#
+# Limits (all deliberate, all safe):
+#   - Plain HTTP only. There is no TLS stack; https:// never connects.
+#     (Upgrade when a TLS implementation lands in the syscall layer.)
+#   - IPv4 literals and "localhost" only. No DNS resolver exists.
+#   - IPv4-only sockaddr_in, Linux/x86-64 syscall numbers (41/42/44/45/3).
+#   - One send, one recv of at most 8191 bytes: a response larger than one
+#     blocking read is truncated. Chunked encoding bodies keep their size
+#     lines embedded. (Upgrade when ptr arithmetic / transfer loops land.)
+#   - Fixed request headers: Host, Connection: close, and Content-Length +
+#     Content-Type: application/json when a body is present. No custom
+#     headers, no redirects, no timeouts, no keep-alive (new socket per call).
+#
+
+def swap32(v: int[64]) -> int[64]:
+    return ((v & 255) << 24) | ((v & 65280) << 8) | ((v >> 8) & 65280) | ((v >> 24) & 255)
+
+
+def swap16(v: int[64]) -> int[64]:
+    return ((v & 255) << 8) | ((v >> 8) & 255)
+
+
+class Sa(struct):
+    lo: int[64]
+    hi: int[64]
+
+class Chunker(struct):
+    f0: int[8]
+    f1: int[8]
+    f2: int[8]
+    f3: int[8]
+    f4: int[8]
+    f5: int[8]
+    f6: int[8]
+    f7: int[8]
+    f8: int[8]
+    f9: int[8]
+    f10: int[8]
+    f11: int[8]
+    f12: int[8]
+    f13: int[8]
+    f14: int[8]
+    f15: int[8]
+    f16: int[8]
+    f17: int[8]
+    f18: int[8]
+    f19: int[8]
+    f20: int[8]
+    f21: int[8]
+    f22: int[8]
+    f23: int[8]
+    f24: int[8]
+    f25: int[8]
+    f26: int[8]
+    f27: int[8]
+    f28: int[8]
+    f29: int[8]
+    f30: int[8]
+    f31: int[8]
+    f32: int[8]
+    f33: int[8]
+    f34: int[8]
+    f35: int[8]
+    f36: int[8]
+    f37: int[8]
+    f38: int[8]
+    f39: int[8]
+    f40: int[8]
+    f41: int[8]
+    f42: int[8]
+    f43: int[8]
+    f44: int[8]
+    f45: int[8]
+    f46: int[8]
+    f47: int[8]
+    f48: int[8]
+    f49: int[8]
+    f50: int[8]
+    f51: int[8]
+    f52: int[8]
+    f53: int[8]
+    f54: int[8]
+    f55: int[8]
+    f56: int[8]
+    f57: int[8]
+    f58: int[8]
+    f59: int[8]
+    f60: int[8]
+    f61: int[8]
+    f62: int[8]
+    f63: int[8]
+
+# --- inputs (edit the three literals below; the language has no str-valued
+# function parameters, so the request runs off module globals) ---
+http_method: str[8] = "GET"
+http_url: str[256] = "http://127.0.0.1:8080/"
+http_body: str[2048] = ""
+
+# --- outputs (read after this file runs) ---
+http_status: int[64] = 0
+http_out: str[4096] = ""
+http_digits: str[11] = "0123456789"
+http_tail: str[24] = " HTTP/1.1\r\nHost: "
+http_cl: str[20] = "Content-Length: "
+http_ct: str[33] = "Content-Type: application/json\r\n"
+
+# --- run: module-level scalars ---
+done: int[64] = 0
+status: int[64] = 0
+fd: int[64] = -1
+n: int[64] = 0
+scheme_ok: int[64] = 1
+host_start: int[64] = 7
+host_end: int[64] = len(http_url)
+port: int[64] = 80
+path_start: int[64] = -1
+port_start: int[64] = -1
+port_end: int[64] = len(http_url)
+ip: int[64] = 0
+host_len: int[64] = host_end - host_start
+out: int[64] = 0
+body_len: int[64] = 0
+sp: int[64] = 0
+remain: int[64] = 0
+sent: int[64] = 0
+total: int[64] = 0
+bs: int[64] = 0
+body_start: int[64] = -1
+dst: int[64] = 0
+pos: int[64] = 0
+exp: int[64] = 0
+bytev: int[8] = 0
+d1: int[64] = 0
+d2: int[64] = 0
+d3: int[64] = 0
+digit_ok: int[64] = 0
+oa: int[64] = 0
+ob: int[64] = 0
+lb: list[int[8], 64]
+bl: list[int[8], 4096]
+req: str[4096]
+sa: Sa
+_psa: ptr[Sa] = addressof(sa)
+ch: Chunker
+_pch: ptr[Chunker] = addressof(ch)
+

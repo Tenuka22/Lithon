@@ -1,0 +1,90 @@
+# part file 10_url.lio of std/http/ (concatenate in order)
+# URL parse (http://host[:port][/path]) + IPv4/localhost
+scheme_chk: int[64] = 0
+if len(http_url) < 7:
+    scheme_ok = 0
+if http_url[0] != 104:
+    scheme_ok = 0
+if http_url[1] != 116:
+    scheme_ok = 0
+if http_url[2] != 116:
+    scheme_ok = 0
+if http_url[3] != 112:
+    scheme_ok = 0
+if http_url[4] != 58:
+    scheme_ok = 0
+if http_url[5] != 47:
+    scheme_ok = 0
+if http_url[6] != 47:
+    scheme_ok = 0
+scheme_chk = scheme_ok
+if scheme_chk == 0:
+    done = 1
+
+if done == 0:
+    i: int[64] = host_start
+    while i < len(http_url):
+        c: int[64] = http_url[i]
+        if c == 58:
+            host_end = i
+            i = i + 1
+            port_start = i
+            while i < len(http_url):
+                c2: int[64] = http_url[i]
+                if c2 == 47:
+                    path_start = i
+                    i = len(http_url)
+                i = i + 1
+            if path_start < 0:
+                i = len(http_url)
+        else:
+            if c == 47:
+                host_end = i
+                path_start = i
+                i = len(http_url)
+            i = i + 1
+
+if path_start >= 0:
+    port_end = path_start
+
+if done == 0:
+    if host_len == 9:
+        lw: str[10] = "localhost"
+        match: int[64] = 1
+        j: int[64] = 0
+        while j < 9:
+            if http_url[host_start + j] != lw[j]:
+                match = 0
+            j = j + 1
+        if match == 1:
+            ip = 2130706433
+    if ip == 0 and host_len > 0:
+        octet: int[64] = 0
+        dots: int[64] = 0
+        k: int[64] = host_start
+        while k < host_end:
+            d: int[64] = http_url[k]
+            if d == 46:
+                ip = ip * 256 + octet
+                octet = 0
+                dots = dots + 1
+            else:
+                if d >= 48 and d <= 57:
+                    octet = octet * 10 + (d - 48)
+            k = k + 1
+        if dots == 3:
+            ip = ip * 256 + octet
+        else:
+            ip = 0
+    if port_start >= 0:
+        port = 0
+        pd: int[64] = port_start
+        while pd < port_end:
+            b0: int[64] = http_url[pd]
+            if b0 >= 48 and b0 <= 57:
+                port = port * 10 + (b0 - 48)
+            pd = pd + 1
+    if ip == 0:
+        done = 1
+
+if done == 0:
