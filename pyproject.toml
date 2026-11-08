@@ -15,3 +15,5 @@ lithon = "cli:main"  # Pointing to the main() entrypoint function inside cli.py
 
 [tool.setuptools]
 py-modules = ["cli", "main", "init"]
+packages = ["std", "std.http"]
+include-package-data = true

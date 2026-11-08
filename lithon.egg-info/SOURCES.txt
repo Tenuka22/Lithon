@@ -1,4 +1,5 @@
 LICENSE
+MANIFEST.in
 README.md
 cli.py
 init.py
@@ -9,3 +10,10 @@ lithon.egg-info/SOURCES.txt
 lithon.egg-info/dependency_links.txt
 lithon.egg-info/entry_points.txt
 lithon.egg-info/top_level.txt
+std/__init__.py
+std/http/00_common.lio
+std/http/10_url.lio
+std/http/11_request.lio
+std/http/12_send.lio
+std/http/13_recv.lio
+std/http/__init__.py

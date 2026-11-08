@@ -2,8 +2,7 @@
 
 A standard library for Lithon programs, in Lithon. Lithon has no import
 system (`.lio` files cannot import each other), so each module is a
-folder of `.lio` pieces that you concatenate in order — or paste into
-your program. `tools/check_net_http.py` shows the exact pattern.
+folder of `.lio` pieces that you concatenate in order — or prepend.
 
 ## `http/` — an HTTP client
 
@@ -11,29 +10,28 @@ Every verb rides one code path; the method literal picks the verb and
 JSON/HTML bodies are both plain text (the client makes no distinction,
 only how you read the output):
 
-```lio
-http_method = "POST"                  # GET / PUT / PATCH / POST / DELETE
-http_url = "http://127.0.0.1:8080/api/items"
-http_body = '{"sku": 7}'               # "" for bodyless calls
-# ... the parts run ...
-http_status: 201
-http_out:    {"created": true}
+```python
+from std.http import ROUTES, program, run
+
+program()          # the full concatenated Lithon source
+run(method="POST", url="http://127.0.0.1:8080/api", body='{"sku": 7}')
+                    # {"program": <source with defaults substituted>}
 ```
 
-Concatenate in order (the numeric prefixes enforce this):
+The five verbs are grouped in `std.http.ROUTES` (`get`, `post`, `put`,
+`patch`, `delete`); unknown methods pass through verbatim. Parts:
 
 | File | Role |
 |---|---|
-| `00_common.lio` | swap helpers, the kernel-visible `Chunker` (int[8] struct fields), globals & templates |
-| `10_url.lio` | URL parse (`http://host[:port][/path]`) + IPv4-literal / `localhost` resolution |
-| `11_request.lio` | assembles the request bytes into the `req` str run |
-| `12_send.lio` | socket + connect + chunked send of `req` |
-| `13_recv.lio` | chunked recv with a streaming status/boundary/body parse; prints `status` and `http_out` |
+| `http/00_common.lio` | swap helpers, the kernel-visible `Chunker`, globals & templates |
+| `http/10_url.lio` | URL parse (`http://host[:port][/path]`) + IPv4-literal / `localhost` |
+| `http/11_request.lio` | request assembly into the `req` str run |
+| `http/12_send.lio` | socket + connect + chunked send |
+| `http/13_recv.lio` | chunked recv + streaming status/boundary/body parse; prints `status` and `http_out` |
 
 Buffers are structs of `int[8]` fields — the only kernel-visible
 memory in both tiers (the interpreter keeps string runs as value
-lists, invisible to syscalls; proven by `tests/net/loopback.lio` and by
-the 5-verb check in all three tiers).
+lists, invisible to syscalls).
 
 Limits, all deliberate:
 
@@ -43,3 +41,6 @@ Limits, all deliberate:
 - Fixed headers: `Host`, `Connection: close`, and for a body
   `Content-Length` + `Content-Type: application/json`. No custom headers,
   redirects, timeouts, or keep-alive.
+
+Packaging: `pip install -e .` (or any pip-based update) ships the
+`std` package with its `.lio` sources as package data (`MANIFEST.in`).
