@@ -1,9 +1,9 @@
 /**
  * Tree-sitter grammar for Lithon — highlighting-focused (Python-shaped,
  * fixed-width types). Suites are greedy runs of following statements
- * (indentation ignored): exact nesting degrades, but every real Lithon
- * file parses and its lexemes highlight reliably. Strict nesting via
- * an external scanner is a documented future refinement.
+ * (indentation ignored): exact structural nesting degrades, but every
+ * real Lithon file parses and its lexemes highlight reliably. Strict
+ * nesting via an external scanner is a documented future refinement.
  */
 
 function commaSep(rule) {
@@ -28,10 +28,10 @@ module.exports = grammar({
     [$.try_statement],
     [$.match_statement],
     [$.expression_statement, $.primary_expression],
+    [$.generic_type, $.type_identifier],
     [$.type_annotation, $.type_identifier],
   ]),
 
-  word: ($ => $.identifier),
 
   rules: {
     file: ($ => repeat($.statement)),
@@ -91,10 +91,8 @@ module.exports = grammar({
     parameter: ($) => seq(
       field("name", $.identifier),
       optional(seq(":", $.type_annotation)),
-      optional($.default_parameter),
+      optional(seq("=", $.expression)),
     ),
-
-    default_parameter: ($) => seq("=", $.expression),
 
     if_statement: ($) => seq(
       "if", $.expression, ":", $.suite,
@@ -159,7 +157,7 @@ module.exports = grammar({
       $.expression,
     ),
 
-    suite: ($) => seq(":", repeat1($.statement)),
+    suite: ($) => repeat1($.statement),
 
     // ---- types --------------------------------------------------------
 
@@ -183,6 +181,8 @@ module.exports = grammar({
       "]",
     ),
 
+    subscript: ($) => seq("[", $.expression, "]"),
+
     type_identifier: ($) => /[A-Z][A-Za-z0-9_]*|_?[a-z][a-zA-Z0-9_]*/,
 
     // ---- expressions --------------------------------------------------
@@ -198,6 +198,7 @@ module.exports = grammar({
       $.unary_expression,
       $.call_expression,
       $.identifier,
+      $.dotted_name,
       $.parenthesized_expression,
       $.string,
       $.number,
@@ -233,7 +234,7 @@ module.exports = grammar({
 
     dotted_name: ($) => seq($.identifier, repeat1(seq(".", $.identifier))),
 
-    argument_list: ($) => seq("(", commaSep($.expression), ")"),
+    argument_list: ($) => seq("(", optional(commaSep($.expression)), ")"),
 
     // ---- lexical ----------------------------------------------------
 
