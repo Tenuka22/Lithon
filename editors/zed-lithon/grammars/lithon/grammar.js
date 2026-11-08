@@ -1,11 +1,14 @@
 /**
  * Tree-sitter grammar for Lithon — highlighting-focused (Python-shaped,
- * fixed-width types). Suites are greedy runs of following statements
- * (indentation ignored): exact structural nesting degrades, but every
- * real Lithon file parses and its lexemes highlight reliably. Strict
- * nesting via an external scanner is a documented future refinement.
+ * fixed-width types).
+ *
+ * Suites are greedy runs of following statements (indentation ignored):
+ * exact nesting degrades, but every real Lithon file parses and its
+ * lexemes highlight reliably. Strict nesting via an external scanner
+ * is a documented future refinement.
  */
 
+// tree-sitter 0.26 no longer injects these helpers
 function commaSep(rule) {
   return seq(rule, repeat(seq(",", rule)));
 }
@@ -21,6 +24,22 @@ module.exports = grammar({
   conflicts: ($ => [
     [$.return_statement],
     [$.call_expression],
+    [$.conditional_expression],
+    [$.return_statement, $.conditional_expression],
+    [$.conditional_expression, $.unary_expression],
+    [$.conditional_expression, $.binary_expression],
+    [$.conditional_expression, $.boolean_operator],
+    [$.conditional_expression, $.comparison_expression],
+    [$.assignment, $.conditional_expression],
+    [$.augmented_assignment, $.conditional_expression],
+    [$.match_statement, $.assignment],
+    [$.type_call, $.call_expression],
+    [$.dotted_name],
+    [$.call_expression, $.subscript_expression],
+    [$.primary_expression, $.subscript_expression],
+    [$.subscript_expression, $.dotted_name],
+    [$.expression_statement, $.assignment, $.subscript_expression],
+    [$.assignment, $.subscript_expression],
     [$.suite],
     [$.if_statement],
     [$.while_statement],
@@ -28,10 +47,9 @@ module.exports = grammar({
     [$.try_statement],
     [$.match_statement],
     [$.expression_statement, $.primary_expression],
-    [$.generic_type, $.type_identifier],
-    [$.type_annotation, $.type_identifier],
+    [$.expression_statement, $.assignment],
+    [$.call_expression, $.primary_expression],
   ]),
-
 
   rules: {
     file: ($ => repeat($.statement)),
@@ -56,6 +74,8 @@ module.exports = grammar({
     expression_statement: ($) => choice(
       $.call_expression,
       $.identifier,
+      $.type_identifier,
+      "...",
     ),
 
     decorated_definition: ($) => seq(
@@ -65,7 +85,7 @@ module.exports = grammar({
 
     decorator: ($) => seq(
       "@",
-      $.dotted_name,
+      choice($.dotted_name, $.identifier),
       optional($.argument_list),
     ),
 
@@ -73,7 +93,7 @@ module.exports = grammar({
       "def",
       field("name", $.identifier),
       "(",
-      optional(commaSep($.parameter)),
+      optional(seq(commaSep($.parameter), optional(","))),
       ")",
       optional(seq("->", $.type_annotation)),
       ":",
@@ -83,7 +103,7 @@ module.exports = grammar({
     class_definition: ($) => seq(
       "class",
       field("name", $.type_identifier),
-      optional(seq("(", commaSep($.type_identifier), ")")),
+      optional(seq("(", commaSep(choice($.type_identifier, $.identifier, "struct", "enum", "object")), ")")),
       ":",
       $.suite,
     ),
@@ -121,6 +141,8 @@ module.exports = grammar({
       optional(choice(
         seq(optional("as"), $.identifier),
         $.dotted_name,
+        $.type_identifier,
+        seq("(", commaSep(choice($.type_identifier, $.dotted_name)), ")"),
       )),
       ":", $.suite,
     ),
@@ -146,13 +168,13 @@ module.exports = grammar({
     continue_statement: ($) => "continue",
 
     assignment: ($) => seq(
-      commaSep1($.identifier),
+      commaSep1(choice($.identifier, $.type_identifier, $.dotted_name, $.call_expression, $.subscript_expression, "match")),
       optional(seq(":", $.type_annotation)),
-      repeat1(seq("=", $.expression)),
+      optional(seq("=", $.expression)),
     ),
 
     augmented_assignment: ($) => seq(
-      $.identifier,
+      choice($.identifier, $.dotted_name, $.subscript_expression),
       choice("+=", "-=", "*=", "/=", "%=", "^=", "&=", "|=", "<<=", ">>="),
       $.expression,
     ),
@@ -163,17 +185,28 @@ module.exports = grammar({
 
     type_annotation: ($) => choice(
       $.generic_type,
+      $.type_call,
       $.type_identifier,
       "self",
     ),
 
-    generic_type: ($) => prec(2, seq(
+    type_call: ($) => seq(
+      $.type_identifier,
+      "(",
+      optional(seq(
+        commaSep(choice($.type_annotation, $.integer, $.float, $.identifier)),
+        optional(","),
+      )),
+      ")",
+    ),
+
+    generic_type: ($) => seq(
       choice(
         "int", "float", "bool", "str", "list", "dict", "tuple",
         "ptr", "newtype", "struct", "enum", "object",
       ),
       optional($.subscript_type),
-    )),
+    ),
 
     subscript_type: ($) => seq(
       "[",
@@ -181,38 +214,76 @@ module.exports = grammar({
       "]",
     ),
 
-    subscript: ($) => seq("[", $.expression, "]"),
-
-    type_identifier: ($) => /[A-Z][A-Za-z0-9_]*|_?[a-z][a-zA-Z0-9_]*/,
+    type_identifier: ($) => /[A-Z][A-Za-z0-9_]*/,  // builtins True/False are handled by $.boolean
 
     // ---- expressions --------------------------------------------------
 
     expression: ($) => choice(
+      $.conditional_expression,
       $.binary_expression,
       $.boolean_operator,
       $.comparison_expression,
       $.primary_expression,
     ),
 
+    conditional_expression: ($) => prec.right(seq(
+      $.expression, "if", $.expression, "else", $.expression,
+    )),
+
     primary_expression: ($) => choice(
       $.unary_expression,
       $.call_expression,
-      $.identifier,
       $.dotted_name,
+      $.subscript_expression,
+      $.type_identifier,
+      "match",
+      $.identifier,
       $.parenthesized_expression,
+      $.list,
+      $.dictionary,
+      $.set,
       $.string,
       $.number,
-      "True",
-      "False",
+      $.boolean,
       "self",
     ),
 
+    boolean: ($) => token(prec(20, choice("True", "False"))),
+
+    list: ($) => seq("[", commaSep($.expression), "]"),
+
+    dictionary: ($) => seq("{", commaSep($.pair), "}"),
+
+    set: ($) => seq("{", commaSep($.expression), "}"),
+
+    pair: ($) => seq($.expression, ":", $.expression),
+
     call_expression: ($) => seq(
-      $.dotted_name,
+      choice($.dotted_name, $.identifier, $.type_identifier),
       $.argument_list,
+      repeat(choice(
+        seq(".", $.identifier),
+        $.argument_list,
+      )),
     ),
 
-    parenthesized_expression: ($) => seq("(", $.expression, ")"),
+    subscript_expression: ($) => prec.left(seq(
+      choice($.identifier, $.dotted_name, $.call_expression, $.subscript_expression),
+      repeat1(choice($.subscript, seq(".", $.identifier), $.argument_list)),
+    )),
+
+    subscript: ($) => seq(
+      "[",
+      commaSep(choice($.expression, "*")),
+      "]",
+    ),
+
+    parenthesized_expression: ($) => seq(
+      "(",
+      commaSep1($.expression),
+      optional(","),
+      ")",
+    ),
 
     binary_expression: ($) => prec.left(1, seq(
       $.expression, choice(
@@ -228,25 +299,31 @@ module.exports = grammar({
 
     comparison_expression: ($) => prec.left(2, seq(
       $.expression, choice(
-        "==", "!=", "<=", ">=", "<", ">", "is", "is not",
+        "==", "!=", "<=", ">=", "<", ">", "is", "is not", "in", "not in",
       ), $.expression,
     )),
 
-    dotted_name: ($) => seq($.identifier, repeat1(seq(".", $.identifier))),
+    dotted_name: ($) => seq(choice($.identifier, $.type_identifier, "self"), repeat1(seq(".", $.identifier))),
 
-    argument_list: ($) => seq("(", optional(commaSep($.expression)), ")"),
+    argument_list: ($) => seq(
+      "(",
+      optional(seq(commaSep(choice($.keyword_argument, $.expression)), optional(","))),
+      ")",
+    ),
+
+    keyword_argument: ($) => seq($.identifier, "=", $.expression),
 
     // ---- lexical ----------------------------------------------------
 
     comment: ($) => token(prec(-1, /#[^\r\n]*/)),
 
-    identifier: ($) => /_?[a-zA-Z][a-zA-Z0-9_]*/,
+    identifier: ($) => /(?:_|_*[a-zA-Z][a-zA-Z0-9_]*)/,
 
     number: ($) => choice($.integer, $.float),
 
     integer: ($) => /0x[0-9a-fA-F_]+|[0-9][0-9_]*/,
 
-    float: ($) => /[0-9][0-9_]*\.[0-9_]*([eE][+-]?[0-9]+)?/,
+    float: ($) => /[0-9][0-9_]*\.[0-9_]*([eE][+-]?[0-9]+)?|[0-9][0-9_]*[eE][+-]?[0-9]+/,
 
     string: ($) => choice(
       token(/f"(\\.|[^"\\\r\n])*"/),

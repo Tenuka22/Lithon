@@ -12,6 +12,8 @@
 
 (function_definition name: (identifier) @function)
 (call_expression (dotted_name (identifier) @function))
+(call_expression (identifier) @function)
+(call_expression (type_identifier) @function)
 (dotted_name (identifier) @variable.parameter)
 (decorator) @attribute
 (assignment) @variable
@@ -21,54 +23,70 @@
 (generic_type) @type
 (parameter name: (identifier) @variable.parameter)
 
-[
-  "class" "def" "return" "if" "elif" "else" "while" "for" "in"
-  "break" "continue" "match" "case" "try" "except" "finally" "as"
-  "is" "and" "or" "not"
-] @keyword.operator
-
-("->" @operator)
+(break_statement) @keyword.control
+(continue_statement) @keyword.control
 
 [
-  ("+" @operator)
-  ("-" @operator)
-  ("*" @operator)
-  ("/" @operator)
-  ("%" @operator)
-  ("**" @operator)
-  ("<<" @operator)
-  (">>" @operator)
-  ("&" @operator)
-  ("|" @operator)
-  ("^" @operator)
-  ("~" @operator)
-  ("==" @operator)
-  ("!=" @operator)
-  ("<=" @operator)
-  (">=" @operator)
-  ("<" @operator)
-  (">" @operator)
-  ("+=" @operator)
-  ("-=" @operator)
-  ("*=" @operator)
-  ("/=" @operator)
-  ("%=" @operator)
-  ("^=" @operator)
-  ("&=" @operator)
-  ("|=" @operator)
-  ("<<=" @operator)
-  (">>=" @operator)
-  ("=" @operator)
+  ("class" @keyword.operator)
+  ("def" @keyword.operator)
+  ("return" @keyword.control)
+  ("if" @keyword.control)
+  ("elif" @keyword.control)
+  ("else" @keyword.control)
+  ("while" @keyword.control)
+  ("for" @keyword.control)
+  ("in" @keyword.operator)
+  ("match" @keyword.control)
+  ("case" @keyword.control)
+  ("try" @keyword.control)
+  ("except" @keyword.control)
+  ("finally" @keyword.control)
+  ("as" @keyword.operator)
+  ("is" @keyword.operator)
+  ("and" @keyword.operator)
+  ("or" @keyword.operator)
+  ("not" @keyword.operator)
+(boolean) @constant.builtin
+]
+
+[("+" @operator)
+ ("-" @operator)
+ ("*" @operator)
+ ("/" @operator)
+ ("%" @operator)
+ ("**" @operator)
+ ("<<" @operator)
+ (">>" @operator)
+ ("&" @operator)
+ ("|" @operator)
+ ("^" @operator)
+ ("~" @operator)
+ ("==" @operator)
+ ("!=" @operator)
+ ("<=" @operator)
+ (">=" @operator)
+ ("<" @operator)
+ (">" @operator)
+ ("+=" @operator)
+ ("-=" @operator)
+ ("*=" @operator)
+ ("/=" @operator)
+ ("%=" @operator)
+ ("^=" @operator)
+ ("&=" @operator)
+ ("|=" @operator)
+ ("<<=" @operator)
+ (">>=" @operator)
+ ("=" @operator)
+ ("->" @operator)
 ]
 
 [
-  "(" @punctuation.bracket
-  ")" @punctuation.bracket
-  "[" @punctuation.bracket
-  "]" @punctuation.bracket
-  "{" @punctuation.bracket
-  "}" @punctuation.bracket
-  "," @punctuation.delimiter
-  ":" @punctuation.delimiter
-  "@" @punctuation.delimiter
+  ("(" @punctuation.bracket)
+  (")" @punctuation.bracket)
+  ("[" @punctuation.bracket)
+  ("]" @punctuation.bracket)
+  ("," @punctuation.delimiter)
+  (":" @punctuation.delimiter)
+  ("@" @punctuation.delimiter)
 ]

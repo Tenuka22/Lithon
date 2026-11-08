@@ -1,13 +1,14 @@
 id = "zed-lithon"
 name = "Zed Lithon"
 version = "1.0.0"
+schema_version = 1
 description = "Lithon language support for Zed (syntax highlighting for .lio files)."
 authors = ["Tenu22"]
-authors_url = ["https://github.com/Tenuka22"]
 repository = "https://github.com/Tenuka22/Lithon"
 
-[grammars]
-lithon = { name = "tree-sitter-lithon", path = "grammars/lithon" }
+[grammars.lithon]
+repository = "file:///home/tenu22/Projects/Lithon/editors/zed-lithon/grammars/lithon"
+rev = "docs/oop-phase1-sync"
 
 [languages]
 Lithon = { scope = "source.lithon" }
