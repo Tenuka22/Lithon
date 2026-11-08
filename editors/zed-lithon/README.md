@@ -5,28 +5,18 @@ in the [Zed](https://zed.dev) editor, via the tree-sitter grammar in
 `grammars/lithon/` (grammar + scanner compile to `src/parser.c` during
 generation by `tree-sitter generate`).
 
-## Install — quickest path (folder)
+## Install — one script (repo-linked, tracks this repo)
 
-1. Ensure a Zed-supported language id on your machine:
-   `zed --version`.
-2. Copy the two needed folders:
+```bash
+bash editors/zed-lithon/install.sh
+```
 
-   ```bash
-   cp -r editors/zed-lithon/grammars/lithon ~/.config/zed/languages/lithon  # grammar package
-   cp -r editors/zed-lithon/languages/lithon ~/.config/zed/languages/lithon-lang || true
-   ```
+That symlinks `editors/zed-lithon/` into
+`~/.config/zed/languages/lithon` (the grammar package, the language
+config, and the highlight queries), so edits to the grammar here flow
+into Zed with no copying. Reopen Zed and open any `.lio` file.
 
-   Hmm — simplest reliable route used in CI/testing here is a local
-   clone; Zed users commonly symlink:
-
-   ```bash
-   mkdir -p ~/.config/zed/languages
-   ln -s "$PWD/editors/zed-lithon" ~/.config/zed/extensions/zed-lithon
-   ```
-
-   Then open any `.lio` file — it highlights.
-
-## Install — proper extension (recommended)
+## Install — proper extension (recommended for publishing)
 
 Add this folder as a Zed extension:
 
@@ -68,7 +58,7 @@ Strict nesting via an external scanner is a planned refinement.
 ```bash
 cd editors/zed-lithon/grammars/lithon
 tree-sitter generate    # writes src/parser.c from grammar.js
-tree-sitter build       # compiles src/parser.c + src/scanner.c
+tree-sitter build .     # compiles src/parser.c + src/scanner.c
 # Updating highlights only (no grammar change): edit queries/highlights.scm
 # and run `zed --reload-languages` (or restart Zed).
 ```
