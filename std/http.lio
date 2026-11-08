@@ -1,0 +1,693 @@
+# std/http.lio — a one-file HTTP client for Lithon.
+#
+# There is no import system in Lithon: prepend this file to your program
+# (or paste it in). It depends on nothing but the `syscall()` builtin,
+# `str[N]` buffers, and the loops the language already has. Usage:
+#
+#     http_method = "POST"
+#     http_url = "http://127.0.0.1:8080/api/items"
+#     http_body = '{"sku": 7}'
+#     s: int[64] = http_request()
+#     print(s)          # 201
+#     print(http_out)   # response body, e.g. '{"created": true}'
+#
+# Supported verbs are the method literal alone: GET / PUT / PATCH / POST /
+# DELETE all run the same code path. The body is opaque text — JSON and HTML
+# need no distinction, only how you read http_out. Status is the HTTP code,
+# or 0 when the request could not be made at all (bad URL, refused connect,
+# empty/unexpected response); http_out is then "" (or the partial body).
+#
+# Limits (all deliberate, all safe):
+#   - Plain HTTP only. There is no TLS stack; https:// never connects.
+#     (Upgrade when a TLS implementation lands in the syscall layer.)
+#   - IPv4 literals and "localhost" only. No DNS resolver exists.
+#   - IPv4-only sockaddr_in, Linux/x86-64 syscall numbers (41/42/44/45/3).
+#   - One send, one recv of at most 8191 bytes: a response larger than one
+#     blocking read is truncated. Chunked encoding bodies keep their size
+#     lines embedded. (Upgrade when ptr arithmetic / transfer loops land.)
+#   - Fixed request headers: Host, Connection: close, and Content-Length +
+#     Content-Type: application/json when a body is present. No custom
+#     headers, no redirects, no timeouts, no keep-alive (new socket per call).
+#
+
+def swap32(v: int[64]) -> int[64]:
+    return ((v & 255) << 24) | ((v & 65280) << 8) | ((v >> 8) & 65280) | ((v >> 24) & 255)
+
+
+def swap16(v: int[64]) -> int[64]:
+    return ((v & 255) << 8) | ((v >> 8) & 255)
+
+
+class Sa(struct):
+    lo: int[64]
+    hi: int[64]
+
+class Chunker(struct):
+    f0: int[8]
+    f1: int[8]
+    f2: int[8]
+    f3: int[8]
+    f4: int[8]
+    f5: int[8]
+    f6: int[8]
+    f7: int[8]
+    f8: int[8]
+    f9: int[8]
+    f10: int[8]
+    f11: int[8]
+    f12: int[8]
+    f13: int[8]
+    f14: int[8]
+    f15: int[8]
+    f16: int[8]
+    f17: int[8]
+    f18: int[8]
+    f19: int[8]
+    f20: int[8]
+    f21: int[8]
+    f22: int[8]
+    f23: int[8]
+    f24: int[8]
+    f25: int[8]
+    f26: int[8]
+    f27: int[8]
+    f28: int[8]
+    f29: int[8]
+    f30: int[8]
+    f31: int[8]
+    f32: int[8]
+    f33: int[8]
+    f34: int[8]
+    f35: int[8]
+    f36: int[8]
+    f37: int[8]
+    f38: int[8]
+    f39: int[8]
+    f40: int[8]
+    f41: int[8]
+    f42: int[8]
+    f43: int[8]
+    f44: int[8]
+    f45: int[8]
+    f46: int[8]
+    f47: int[8]
+    f48: int[8]
+    f49: int[8]
+    f50: int[8]
+    f51: int[8]
+    f52: int[8]
+    f53: int[8]
+    f54: int[8]
+    f55: int[8]
+    f56: int[8]
+    f57: int[8]
+    f58: int[8]
+    f59: int[8]
+    f60: int[8]
+    f61: int[8]
+    f62: int[8]
+    f63: int[8]
+
+# --- inputs (edit the three literals below; the language has no str-valued
+# function parameters, so the request runs off module globals) ---
+http_method: str[8] = "GET"
+http_url: str[256] = "http://127.0.0.1:8080/"
+http_body: str[2048] = ""
+
+# --- outputs (read after this file runs) ---
+http_status: int[64] = 0
+http_out: str[4096] = ""
+http_digits: str[11] = "0123456789"
+http_tail: str[24] = " HTTP/1.1\r\nHost: "
+http_cl: str[20] = "Content-Length: "
+http_ct: str[33] = "Content-Type: application/json\r\n"
+
+# --- run: module-level scalars ---
+done: int[64] = 0
+status: int[64] = 0
+fd: int[64] = -1
+n: int[64] = 0
+scheme_ok: int[64] = 1
+host_start: int[64] = 7
+host_end: int[64] = len(http_url)
+port: int[64] = 80
+path_start: int[64] = -1
+port_start: int[64] = -1
+port_end: int[64] = len(http_url)
+ip: int[64] = 0
+host_len: int[64] = host_end - host_start
+out: int[64] = 0
+body_len: int[64] = 0
+sp: int[64] = 0
+remain: int[64] = 0
+sent: int[64] = 0
+total: int[64] = 0
+bs: int[64] = 0
+body_start: int[64] = -1
+dst: int[64] = 0
+pos: int[64] = 0
+exp: int[64] = 0
+bytev: int[8] = 0
+d1: int[64] = 0
+d2: int[64] = 0
+d3: int[64] = 0
+digit_ok: int[64] = 0
+oa: int[64] = 0
+ob: int[64] = 0
+lb: list[int[8], 64]
+bl: list[int[8], 4096]
+req: str[4096]
+sa: Sa
+_psa: ptr[Sa] = addressof(sa)
+ch: Chunker
+_pch: ptr[Chunker] = addressof(ch)
+
+scheme_chk: int[64] = 0
+if len(http_url) < 7:
+    scheme_ok = 0
+if http_url[0] != 104:
+    scheme_ok = 0
+if http_url[1] != 116:
+    scheme_ok = 0
+if http_url[2] != 116:
+    scheme_ok = 0
+if http_url[3] != 112:
+    scheme_ok = 0
+if http_url[4] != 58:
+    scheme_ok = 0
+if http_url[5] != 47:
+    scheme_ok = 0
+if http_url[6] != 47:
+    scheme_ok = 0
+scheme_chk = scheme_ok
+if scheme_chk == 0:
+    done = 1
+
+if done == 0:
+    i: int[64] = host_start
+    while i < len(http_url):
+        c: int[64] = http_url[i]
+        if c == 58:
+            host_end = i
+            i = i + 1
+            port_start = i
+            while i < len(http_url):
+                c2: int[64] = http_url[i]
+                if c2 == 47:
+                    path_start = i
+                    i = len(http_url)
+                i = i + 1
+            if path_start < 0:
+                i = len(http_url)
+        else:
+            if c == 47:
+                host_end = i
+                path_start = i
+                i = len(http_url)
+            i = i + 1
+
+if path_start >= 0:
+    port_end = path_start
+
+if done == 0:
+    if host_len == 9:
+        lw: str[10] = "localhost"
+        match: int[64] = 1
+        j: int[64] = 0
+        while j < 9:
+            if http_url[host_start + j] != lw[j]:
+                match = 0
+            j = j + 1
+        if match == 1:
+            ip = 2130706433
+    if ip == 0 and host_len > 0:
+        octet: int[64] = 0
+        dots: int[64] = 0
+        k: int[64] = host_start
+        while k < host_end:
+            d: int[64] = http_url[k]
+            if d == 46:
+                ip = ip * 256 + octet
+                octet = 0
+                dots = dots + 1
+            else:
+                if d >= 48 and d <= 57:
+                    octet = octet * 10 + (d - 48)
+            k = k + 1
+        if dots == 3:
+            ip = ip * 256 + octet
+        else:
+            ip = 0
+    if port_start >= 0:
+        port = 0
+        pd: int[64] = port_start
+        while pd < port_end:
+            b0: int[64] = http_url[pd]
+            if b0 >= 48 and b0 <= 57:
+                port = port * 10 + (b0 - 48)
+            pd = pd + 1
+    if ip == 0:
+        done = 1
+
+if done == 0:
+    m: int[64] = 0
+    while m < len(http_method):
+        req[out] = http_method[m]
+        out = out + 1
+        m = m + 1
+    req[out] = 32
+    out = out + 1
+    if path_start < 0:
+        req[out] = 47
+        out = out + 1
+    else:
+        p: int[64] = path_start
+        while p < len(http_url):
+            req[out] = http_url[p]
+            out = out + 1
+            p = p + 1
+    t: int[64] = 0
+    while t < len(http_tail):
+        req[out] = http_tail[t]
+        out = out + 1
+        t = t + 1
+    h: int[64] = host_start
+    while h < host_end:
+        req[out] = http_url[h]
+        out = out + 1
+        h = h + 1
+    if port != 80:
+        req[out] = 58
+        out = out + 1
+        dtmp: list[int[64], 6]
+        dcnt: int[64] = 0
+        pv: int[64] = port
+        while pv > 0:
+            dtmp[dcnt] = pv % 10
+            pv = int(64, pv / 10.0)
+            dcnt = dcnt + 1
+        if dcnt == 0:
+            dtmp[0] = 0
+            dcnt = 1
+        di: int[64] = dcnt
+        while di > 0:
+            di = di - 1
+            req[out] = http_digits[dtmp[di]]
+            out = out + 1
+    req[out] = 13
+    out = out + 1
+    req[out] = 10
+    out = out + 1
+    body_len = len(http_body)
+    if body_len > 0:
+        cl: int[64] = 0
+        while cl < len(http_cl):
+            req[out] = http_cl[cl]
+            out = out + 1
+            cl = cl + 1
+        dtmp2: list[int[64], 6]
+        dcnt2: int[64] = 0
+        bv: int[64] = body_len
+        while bv > 0:
+            dtmp2[dcnt2] = bv % 10
+            bv = int(64, bv / 10.0)
+            dcnt2 = dcnt2 + 1
+        if dcnt2 == 0:
+            dtmp2[0] = 0
+            dcnt2 = 1
+        di2: int[64] = dcnt2
+        while di2 > 0:
+            di2 = di2 - 1
+            req[out] = http_digits[dtmp2[di2]]
+            out = out + 1
+        req[out] = 13
+        out = out + 1
+        req[out] = 10
+        out = out + 1
+        ct: int[64] = 0
+        while ct < len(http_ct):
+            req[out] = http_ct[ct]
+            out = out + 1
+            ct = ct + 1
+        # blank line ends the headers; the body follows immediately
+        req[out] = 13
+        out = out + 1
+        req[out] = 10
+        out = out + 1
+        b: int[64] = 0
+        while b < body_len:
+            req[out] = http_body[b]
+            out = out + 1
+            b = b + 1
+    else:
+        req[out] = 13
+        out = out + 1
+        req[out] = 10
+        out = out + 1
+
+if done == 0:
+    sa.lo = 2 | (swap16(port) << 16) | (swap32(ip) << 32)
+    sa.hi = 0
+    fd = syscall(41, 2, 1, 0)
+    if fd < 0:
+        done = 1
+if done == 0:
+    if syscall(42, fd, _psa, 16) < 0:
+        syscall(3, fd)
+        done = 1
+
+if done == 0:
+    sp = 0
+    while sp < out and done == 0:
+        if sp + 0 < out:
+            ch.f0 = req[sp]
+        if sp + 1 < out:
+            ch.f1 = req[sp + 1]
+        if sp + 2 < out:
+            ch.f2 = req[sp + 2]
+        if sp + 3 < out:
+            ch.f3 = req[sp + 3]
+        if sp + 4 < out:
+            ch.f4 = req[sp + 4]
+        if sp + 5 < out:
+            ch.f5 = req[sp + 5]
+        if sp + 6 < out:
+            ch.f6 = req[sp + 6]
+        if sp + 7 < out:
+            ch.f7 = req[sp + 7]
+        if sp + 8 < out:
+            ch.f8 = req[sp + 8]
+        if sp + 9 < out:
+            ch.f9 = req[sp + 9]
+        if sp + 10 < out:
+            ch.f10 = req[sp + 10]
+        if sp + 11 < out:
+            ch.f11 = req[sp + 11]
+        if sp + 12 < out:
+            ch.f12 = req[sp + 12]
+        if sp + 13 < out:
+            ch.f13 = req[sp + 13]
+        if sp + 14 < out:
+            ch.f14 = req[sp + 14]
+        if sp + 15 < out:
+            ch.f15 = req[sp + 15]
+        if sp + 16 < out:
+            ch.f16 = req[sp + 16]
+        if sp + 17 < out:
+            ch.f17 = req[sp + 17]
+        if sp + 18 < out:
+            ch.f18 = req[sp + 18]
+        if sp + 19 < out:
+            ch.f19 = req[sp + 19]
+        if sp + 20 < out:
+            ch.f20 = req[sp + 20]
+        if sp + 21 < out:
+            ch.f21 = req[sp + 21]
+        if sp + 22 < out:
+            ch.f22 = req[sp + 22]
+        if sp + 23 < out:
+            ch.f23 = req[sp + 23]
+        if sp + 24 < out:
+            ch.f24 = req[sp + 24]
+        if sp + 25 < out:
+            ch.f25 = req[sp + 25]
+        if sp + 26 < out:
+            ch.f26 = req[sp + 26]
+        if sp + 27 < out:
+            ch.f27 = req[sp + 27]
+        if sp + 28 < out:
+            ch.f28 = req[sp + 28]
+        if sp + 29 < out:
+            ch.f29 = req[sp + 29]
+        if sp + 30 < out:
+            ch.f30 = req[sp + 30]
+        if sp + 31 < out:
+            ch.f31 = req[sp + 31]
+        if sp + 32 < out:
+            ch.f32 = req[sp + 32]
+        if sp + 33 < out:
+            ch.f33 = req[sp + 33]
+        if sp + 34 < out:
+            ch.f34 = req[sp + 34]
+        if sp + 35 < out:
+            ch.f35 = req[sp + 35]
+        if sp + 36 < out:
+            ch.f36 = req[sp + 36]
+        if sp + 37 < out:
+            ch.f37 = req[sp + 37]
+        if sp + 38 < out:
+            ch.f38 = req[sp + 38]
+        if sp + 39 < out:
+            ch.f39 = req[sp + 39]
+        if sp + 40 < out:
+            ch.f40 = req[sp + 40]
+        if sp + 41 < out:
+            ch.f41 = req[sp + 41]
+        if sp + 42 < out:
+            ch.f42 = req[sp + 42]
+        if sp + 43 < out:
+            ch.f43 = req[sp + 43]
+        if sp + 44 < out:
+            ch.f44 = req[sp + 44]
+        if sp + 45 < out:
+            ch.f45 = req[sp + 45]
+        if sp + 46 < out:
+            ch.f46 = req[sp + 46]
+        if sp + 47 < out:
+            ch.f47 = req[sp + 47]
+        if sp + 48 < out:
+            ch.f48 = req[sp + 48]
+        if sp + 49 < out:
+            ch.f49 = req[sp + 49]
+        if sp + 50 < out:
+            ch.f50 = req[sp + 50]
+        if sp + 51 < out:
+            ch.f51 = req[sp + 51]
+        if sp + 52 < out:
+            ch.f52 = req[sp + 52]
+        if sp + 53 < out:
+            ch.f53 = req[sp + 53]
+        if sp + 54 < out:
+            ch.f54 = req[sp + 54]
+        if sp + 55 < out:
+            ch.f55 = req[sp + 55]
+        if sp + 56 < out:
+            ch.f56 = req[sp + 56]
+        if sp + 57 < out:
+            ch.f57 = req[sp + 57]
+        if sp + 58 < out:
+            ch.f58 = req[sp + 58]
+        if sp + 59 < out:
+            ch.f59 = req[sp + 59]
+        if sp + 60 < out:
+            ch.f60 = req[sp + 60]
+        if sp + 61 < out:
+            ch.f61 = req[sp + 61]
+        if sp + 62 < out:
+            ch.f62 = req[sp + 62]
+        if sp + 63 < out:
+            ch.f63 = req[sp + 63]
+        remain = out - sp
+        if remain > 64:
+            remain = 64
+        sent = syscall(44, fd, _pch, remain, 0, 0, 0)
+        if sent <= 0:
+            syscall(3, fd)
+            done = 1
+        sp = sp + remain
+
+
+# --- receive: chunked recv with a streaming status/boundary/body parse ---
+# Bytes arrive 64 at a time in ch.* (kernel-real in both tiers). Each chunk
+# is copied into lb so the state machine can walk it with dynamic indices.
+lb: list[int[8], 64]
+total = 0
+bs: int[64] = 0
+body_start: int[64] = -1
+dst: int[64] = 0
+pos: int[64] = 0
+chunk_i: int[64] = 0
+
+if done == 0:
+    while total < 8192 and done == 0:
+        chunk_i = 0
+        n = syscall(45, fd, _pch, 64, 0, 0, 0)
+        if n <= 0:
+            done = 2
+        if n > 0:
+            cpy: int[64] = 0
+            while cpy < n:
+                if cpy == 0:
+                    lb[0] = ch.f0
+                if cpy == 1:
+                    lb[1] = ch.f1
+                if cpy == 2:
+                    lb[2] = ch.f2
+                if cpy == 3:
+                    lb[3] = ch.f3
+                if cpy == 4:
+                    lb[4] = ch.f4
+                if cpy == 5:
+                    lb[5] = ch.f5
+                if cpy == 6:
+                    lb[6] = ch.f6
+                if cpy == 7:
+                    lb[7] = ch.f7
+                if cpy == 8:
+                    lb[8] = ch.f8
+                if cpy == 9:
+                    lb[9] = ch.f9
+                if cpy == 10:
+                    lb[10] = ch.f10
+                if cpy == 11:
+                    lb[11] = ch.f11
+                if cpy == 12:
+                    lb[12] = ch.f12
+                if cpy == 13:
+                    lb[13] = ch.f13
+                if cpy == 14:
+                    lb[14] = ch.f14
+                if cpy == 15:
+                    lb[15] = ch.f15
+                if cpy == 16:
+                    lb[16] = ch.f16
+                if cpy == 17:
+                    lb[17] = ch.f17
+                if cpy == 18:
+                    lb[18] = ch.f18
+                if cpy == 19:
+                    lb[19] = ch.f19
+                if cpy == 20:
+                    lb[20] = ch.f20
+                if cpy == 21:
+                    lb[21] = ch.f21
+                if cpy == 22:
+                    lb[22] = ch.f22
+                if cpy == 23:
+                    lb[23] = ch.f23
+                if cpy == 24:
+                    lb[24] = ch.f24
+                if cpy == 25:
+                    lb[25] = ch.f25
+                if cpy == 26:
+                    lb[26] = ch.f26
+                if cpy == 27:
+                    lb[27] = ch.f27
+                if cpy == 28:
+                    lb[28] = ch.f28
+                if cpy == 29:
+                    lb[29] = ch.f29
+                if cpy == 30:
+                    lb[30] = ch.f30
+                if cpy == 31:
+                    lb[31] = ch.f31
+                if cpy == 32:
+                    lb[32] = ch.f32
+                if cpy == 33:
+                    lb[33] = ch.f33
+                if cpy == 34:
+                    lb[34] = ch.f34
+                if cpy == 35:
+                    lb[35] = ch.f35
+                if cpy == 36:
+                    lb[36] = ch.f36
+                if cpy == 37:
+                    lb[37] = ch.f37
+                if cpy == 38:
+                    lb[38] = ch.f38
+                if cpy == 39:
+                    lb[39] = ch.f39
+                if cpy == 40:
+                    lb[40] = ch.f40
+                if cpy == 41:
+                    lb[41] = ch.f41
+                if cpy == 42:
+                    lb[42] = ch.f42
+                if cpy == 43:
+                    lb[43] = ch.f43
+                if cpy == 44:
+                    lb[44] = ch.f44
+                if cpy == 45:
+                    lb[45] = ch.f45
+                if cpy == 46:
+                    lb[46] = ch.f46
+                if cpy == 47:
+                    lb[47] = ch.f47
+                if cpy == 48:
+                    lb[48] = ch.f48
+                if cpy == 49:
+                    lb[49] = ch.f49
+                if cpy == 50:
+                    lb[50] = ch.f50
+                if cpy == 51:
+                    lb[51] = ch.f51
+                if cpy == 52:
+                    lb[52] = ch.f52
+                if cpy == 53:
+                    lb[53] = ch.f53
+                if cpy == 54:
+                    lb[54] = ch.f54
+                if cpy == 55:
+                    lb[55] = ch.f55
+                if cpy == 56:
+                    lb[56] = ch.f56
+                if cpy == 57:
+                    lb[57] = ch.f57
+                if cpy == 58:
+                    lb[58] = ch.f58
+                if cpy == 59:
+                    lb[59] = ch.f59
+                if cpy == 60:
+                    lb[60] = ch.f60
+                if cpy == 61:
+                    lb[61] = ch.f61
+                if cpy == 62:
+                    lb[62] = ch.f62
+                if cpy == 63:
+                    lb[63] = ch.f63
+                cpy = cpy + 1
+            i = 0
+            while i < n:
+                pos = total + i
+                byte: int[8] = lb[i]
+                if pos == 9:
+                    d1 = byte
+                if pos == 10:
+                    d2 = byte
+                if pos == 11:
+                    d3 = byte
+                if body_start < 0:
+                    exp: int[64] = 13
+                    if bs == 1 or bs == 3:
+                        exp = 10
+                    if byte == exp:
+                        bs = bs + 1
+                        if bs == 4:
+                            body_start = pos + 1
+                    else:
+                        if byte == 13:
+                            bs = 1
+                        else:
+                            bs = 0
+                else:
+                    if dst < 4095:
+                        http_out[dst] = byte
+                        dst = dst + 1
+                i = i + 1
+            total = total + n
+    syscall(3, fd)
+
+if status == 0:
+    digit_ok = 0
+    if d1 >= 48 and d1 <= 57:
+        digit_ok = digit_ok + 1
+    if d2 >= 48 and d2 <= 57:
+        digit_ok = digit_ok + 1
+    if d3 >= 48 and d3 <= 57:
+        digit_ok = digit_ok + 1
+    if digit_ok == 3:
+        status = (d1 - 48) * 100 + (d2 - 48) * 10 + (d3 - 48)
+
+http_status = status
+print(status)
+print(http_out)

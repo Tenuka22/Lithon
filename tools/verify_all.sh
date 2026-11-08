@@ -109,6 +109,9 @@ python3 tools/run_tier_diff.py
 step "5.2 syscalls: loopback round trip (both tiers) == a raw C oracle"
 python3 tools/check_net_loopback.py
 
+step "std/http: five verbs end-to-end against a local server (all three tiers)"
+python3 tools/check_net_http.py
+
 step "4.4 pointer printing: hex address in both tiers, digit formats unchanged"
 python3 tools/check_ptr_print.py
 
